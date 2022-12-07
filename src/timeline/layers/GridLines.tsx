@@ -1,14 +1,13 @@
 import * as React from 'react'
 import { ScaleLinear, scaleTime } from 'd3-scale'
 import { timeMonth } from 'd3-time'
-import { monthDuration, weekDuration, yearDuration, ZoomLevels } from '../shared/ZoomScale'
-import { addMonths, addWeeks, endOfMonth, endOfWeek, isBefore, isEqual, startOfWeek } from 'date-fns'
+import { monthDuration, weekDuration, yearDuration, ZoomLevels, dayDuration, twelveHours, oneHour, oneMin } from '../shared/ZoomScale'
+import { addMonths, addWeeks, endOfMonth, endOfWeek, isBefore, isEqual, startOfWeek, differenceInDays, addDays, addHours, differenceInHours, format, addMinutes, differenceInMinutes } from 'date-fns'
 import { Domain } from '../model'
 import { range } from '../utils'
 import { useTimelineTheme } from '../theme/useTimelineTheme'
 import { XAxisTheme } from '../theme/model'
 import { CSSProperties } from 'react'
-
 interface Props {
   height: number
   domain: Domain
@@ -31,8 +30,30 @@ export const GridLines = ({ height, domain, smallerZoomScale, timeScale }: Props
       return <YearView height={height} domain={domain} timeScale={timeScale} />
     case ZoomLevels.ONE_MONTH:
       return <MonthView height={height} domain={domain} timeScale={timeScale} />
-    default:
+    case ZoomLevels.ONE_WEEK:
       return <MonthView height={height} domain={domain} timeScale={timeScale} showWeekStripes={true} />
+    case ZoomLevels.ONE_DAY:
+      return <DayView height={height} domain={domain} timeScale={timeScale} />
+    case ZoomLevels.TWELVE_HOURS:
+      return <HourView height={height} domain={domain} timeScale={timeScale} />
+    case ZoomLevels.SIX_HOURS:
+      return <HourView height={height} domain={domain} timeScale={timeScale} />
+    case ZoomLevels.THREE_HOURS:
+      return <HourView height={height} domain={domain} timeScale={timeScale} />
+    case ZoomLevels.ONE_HOUR:
+      return <HourView height={height} domain={domain} timeScale={timeScale} />
+    case ZoomLevels.THIRTY_MINS:
+      return <MinuteView height={height} domain={domain} timeScale={timeScale} />
+    case ZoomLevels.FIFTEEN_MINS:
+      return <MinuteView height={height} domain={domain} timeScale={timeScale} />
+    case ZoomLevels.TEN_MINS:
+      return <MinuteView height={height} domain={domain} timeScale={timeScale}  />
+    case ZoomLevels.FIVE_MINS:
+      return <MinuteView height={height} domain={domain} timeScale={timeScale} smallMinutesDivision={true} />
+    case ZoomLevels.ONE_MIN:
+      return <MinuteView height={height} domain={domain} timeScale={timeScale} smallMinutesDivision={true} />
+    default:
+      return <MinuteView height={height} domain={domain} timeScale={timeScale} smallMinutesDivision={true} />
   }
 }
 
@@ -205,4 +226,177 @@ const WeekStripes = ({ monthStart, timeScale }: WeekStripesProps) => {
   })
 
   return <g>{lines}</g>
+}
+
+/* ·················································································································· */
+/*  Day
+/* ·················································································································· */
+const useDayViewTextStyle = (): CSSProperties => {
+  const theme = useTimelineTheme()
+  return {
+    fill: theme.xAxis.labelColor,
+    opacity: 0.5,
+    fontFamily: theme.base.fontFamilyCaption,
+    fontWeight: 'bold',
+    textAnchor: 'middle',
+    cursor: 'default',
+  }
+}
+interface DayViewProps extends Omit<Props, 'smallerZoomScale'> {
+  showHourStripes?: boolean
+}
+
+const DayView = ({ height, domain, timeScale }: DayViewProps) => {
+  const xAxisTheme: XAxisTheme = useTimelineTheme().xAxis
+  const textStyle = useDayViewTextStyle()
+  const gridLineStyle = useGridLineStyle()
+
+  const startDate = new Date(domain[0])
+  const endDate = new Date(domain[1])
+
+  const lines = range(0, differenceInDays(endDate, startDate)).map((sliceDay) => {
+    const day = addDays(startDate, sliceDay)
+    const x = timeScale(day)!
+    const dayTimestamp = day.getTime()
+    const xMidDay = timeScale(dayTimestamp + dayDuration / 2)
+    const fontSize = xAxisTheme.dayLabelFontSize ? xAxisTheme.dayLabelFontSize : 18
+
+    return (
+      <g key={x}>
+        <line style={gridLineStyle} x1={x} y1={0} x2={x} y2={height - 10} />
+        <text style={textStyle} x={xMidDay} y="90%" fontSize={fontSize}>
+          {format(day, 'MMM, d')}
+        </text>
+      </g>
+    )
+  })
+
+  return <g>{lines}</g>
+}
+/* ·················································································································· */
+/*  Hours
+/* ·················································································································· */
+const useHourViewTextStyle = (): CSSProperties => {
+  const theme = useTimelineTheme()
+  return {
+    fill: theme.xAxis.labelColor,
+    opacity: 0.5,
+    fontFamily: theme.base.fontFamilyCaption,
+    fontWeight: 'bold',
+    textAnchor: 'middle',
+    cursor: 'default',
+  }
+}
+interface HourViewProps extends Omit<Props, 'smallerZoomScale'> { }
+
+const HourView = ({ height, domain, timeScale }: HourViewProps) => {
+  const xAxisTheme: XAxisTheme = useTimelineTheme().xAxis
+  const textStyle = useHourViewTextStyle()
+
+  const startDate = new Date(domain[0])
+  const endDate = new Date(domain[1])
+
+  const lines = range(0, differenceInHours(endDate, startDate)).map((sliceHours) => {
+    const hour = addHours(startDate, sliceHours)
+    const x = timeScale(hour)!
+    const hourTimestamp = hour.getTime()
+    const xMidHour = timeScale(hourTimestamp + oneHour / 2)
+    const fontSize = xAxisTheme.hourLabelFontSize ? xAxisTheme.hourLabelFontSize : 16
+
+    return (
+      <g key={x}>
+        <HourLine x={x} hour={hour.getTime()} height={height} />
+        <text style={textStyle} x={xMidHour} y="90%" fontSize={fontSize}>
+          {format(hour, 'HH:mm')}
+        </text>
+      </g>
+    )
+  })
+
+  return <g>{lines}</g>
+}
+interface HourLineProps {
+  x: number
+  hour: number
+  height: number
+}
+const HourLine = ({ x, hour, height }: HourLineProps) => {
+  const style = useGridLineStyle()
+  return (
+    <line
+      style={style}
+      x1={x}
+      y1={0}
+      x2={x}
+      y2={height - 10}
+      strokeWidth={hour === 0 ? 2 : 1}
+    />
+  )
+}
+/* ·················································································································· */
+/*  Minutes
+/* ·················································································································· */
+const useMinutesViewTextStyle = (): CSSProperties => {
+  const theme = useTimelineTheme()
+  return {
+    fill: theme.xAxis.labelColor,
+    opacity: 0.5,
+    fontFamily: theme.base.fontFamilyCaption,
+    fontWeight: 'bold',
+    textAnchor: 'middle',
+    cursor: 'default',
+  }
+}
+interface MinutesViewProps extends Omit<Props, 'smallerZoomScale'> {
+  smallMinutesDivision?:boolean
+ }
+
+const MinuteView = ({ height, domain, timeScale, smallMinutesDivision=false }: MinutesViewProps) => {
+  const xAxisTheme: XAxisTheme = useTimelineTheme().xAxis
+  const textStyle = useMinutesViewTextStyle()
+
+  const startDate = new Date(domain[0])
+  const endDate = new Date(domain[1])
+  const lastIndex = differenceInMinutes(endDate, startDate) +1
+
+  const lines = range(0, lastIndex).map((sliceMinutes,index) => {
+    const minute = addMinutes(startDate, sliceMinutes)
+    const x = timeScale(minute)!
+    const minuteTimestamp = minute.getTime()
+    const xMidMinute = timeScale(minuteTimestamp)
+    const fontSize = xAxisTheme.minuteLabelFontSize ? xAxisTheme.hourLabelFontSize : 14
+    
+    return (
+      <g key={x}>
+        {(smallMinutesDivision || sliceMinutes % 5 === 0) &&
+          <>
+            <MinuteLine x={x} minute={minute.getTime()} height={height} thickLine={index === 0 ||lastIndex-1 === sliceMinutes} />
+            <text style={textStyle} x={xMidMinute} y="90%" fontSize={fontSize}>
+              {format(minute, 'mm:ss')}
+            </text>
+          </>
+        }
+      </g>
+    )
+  })
+  return <g>{lines}</g>
+}
+interface MinuteLineProps {
+  x: number
+  minute: number
+  height: number
+  thickLine: boolean
+}
+const MinuteLine = ({ x, minute, height, thickLine }: MinuteLineProps) => {
+  const style = useGridLineStyle()
+  return (
+    <line
+      style={style}
+      x1={x}
+      y1={0}
+      x2={x}
+      y2={height - 30}
+      strokeWidth={(thickLine) ? 2 : 1}
+    />
+  )
 }

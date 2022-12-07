@@ -28,6 +28,9 @@ export interface EventTheme {
 
 export interface XAxisTheme {
   readonly labelColor: string
+  readonly minuteLabelFontSize?: number
+  readonly hourLabelFontSize?: number
+  readonly dayLabelFontSize?: number
   readonly monthLabelFontSize?: number
   readonly yearLabelFontSize?: number
 }
